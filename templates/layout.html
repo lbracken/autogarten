@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- autogarten : https://github.com/lbracken/autogarten
+     :license: MIT, see LICENSE for more details.
+-->
+<html lang="en">
+  <head>
+   <!-- TODO: Insert BMX -->
+
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>{% block title %}{% endblock %}</title>
+    {% block extra_style %}{% endblock %}
+  </head>
+
+  <body>  
+    {% block body %}{% endblock %}
+    
+    <footer>
+      <div id="footer">
+        <div id="footer-inner">
+          © 2014 <a href="http://levibracken.com">Levi Bracken</a> &nbsp;&nbsp;|&nbsp;&nbsp; 
+          <a href="https://github.com/lbracken/autogarten">Fork me on GitHub</a>
+        </div>
+      </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+    <!-- TODO: Insert GAE -->
+
+  </body>
+</html>
