@@ -9,6 +9,7 @@
 """
 
 import argparse
+import ConfigParser
 import json
 import math
 import traceback
@@ -29,7 +30,21 @@ import date_util
 app = Flask(__name__)
 verbose = False
 
+token = None
 time_diff_threshold = 5  # 5 seconds
+
+def init_config():
+    """ Read settings from config file
+
+    """
+    global token, time_diff_threshold
+
+    config = ConfigParser.SafeConfigParser()
+    config.read("settings.cfg")
+
+    token = config.get("control_server", "token")
+    time_diff_threshold = config.getint("control_server", "time_diff_threshold") 
+
 
 @app.route("/")
 def main_page():
@@ -61,7 +76,11 @@ def probe_sync():
         print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>> probe_sync"
         print request 
 
-    # TODO: Validate probe sync request token
+    # Validate probe sync request token
+    if not probe_sync.token == token:
+        print "[WARN] Connection attempt by probe '%s' from %s with invalid token." %\
+            (probe_sync.probe_id, request.remote_addr)
+        abort(401)
 
     # TODO: Compare probe's time with Control Server time.  Then
     # log if the difference is significant then log.
@@ -100,7 +119,8 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    args  = parse_args()
+    args = parse_args()
+    init_config()
 
     print "----------------------------------< autogarten Control Server >----"
     app.run(debug=True) # If running directly from the CLI, run in debug mode.
