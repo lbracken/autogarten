@@ -19,7 +19,7 @@ import date_util
 
 db_sensor_data = None
 
-probe_sync_interval = 15 * 60 * 1000    # Every 15 mins
+probe_sync_interval = 1 * 60 * 60 # Probe sync interval in seconds
 
 def init_db():
     global db_sensor_data
@@ -35,6 +35,9 @@ def process_probe_sync(probe_sync):
 
     probe_id = probe_sync.probe_id
 
+    # Persist information about the probe and this sync
+    # TODO...
+
     # Persist any sensor data
     persist_sensor_data(probe_id, probe_sync.sensor_data)
 
@@ -42,20 +45,18 @@ def process_probe_sync(probe_sync):
     # TODO...
 
     # Determine commands for response
-    # TODO...
+    sensor_commands = determine_sensor_commands(probe_id)
 
     # Build response
     response = {
         "probe_id" : probe_sync.probe_id,
-        "sensor_commands" : [] # TODO
+        "interval" : probe_sync_interval,
+        "sensor_commands" : sensor_commands
     }
 
-    # Finally provide time sync data.  Will be off by remaining
+    # Finally provide time sync data.  This will be off by remaining
     # control server processing, one way latency and probe processing.
-    now = datetime.now()
-    response["curr_time"] = date_util.get_timestamp(now)
-    response["next_sync"] = date_util.get_timestamp(now) + probe_sync_interval
-
+    response["curr_time"] = date_util.get_current_timestamp()
     return response
 
 
@@ -76,7 +77,7 @@ def persist_sensor_data(probe_id, sensor_data):
         sensor_id = data_point["id"]
         timestamp = data_point["timestamp"]
         date_time = datetime.fromtimestamp(timestamp)
-        day = datetime(date_time.year, date_time.month, date_time.day)
+        day = date_util.get_midnight(date_time)
 
         db_sensor_data.update(
             {"_id" : get_metric_id(day, probe_id, sensor_id)},
@@ -101,6 +102,26 @@ def get_metric_id(day, probe_id, instrument_id):
     mm = date_util.pad_month_day_value(day.month)
     dd = date_util.pad_month_day_value(day.day)
     return "%s%s%s-%s-%s" % (day.year, mm, dd, probe_id, instrument_id)
+
+
+def determine_sensor_commands(probe_id):
+    """ Determines the sensor commands for the given probe.
+
+        TODO: In the future, all commands should be determined based
+        upon a config file that the user can easily define.  However,
+        for now just hardcode the sensor command logic.
+
+    """
+    sensor_commands = []
+
+    if probe_id == "test_probe":
+        interval = 300   # Sensor read interval in seconds
+        sensor_commands.append({"id" : "tmp0", "interval" : interval})
+        sensor_commands.append({"id" : "tmp1", "interval" : interval})
+        sensor_commands.append({"id" : "pho0", "interval" : interval})
+        sensor_commands.append({"id" : "mos0", "interval" : interval})
+
+    return sensor_commands
 
 
 # Initialize connection to DB when loading module

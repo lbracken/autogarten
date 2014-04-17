@@ -27,6 +27,13 @@ def get_next_month(date_time):
         return datetime(date_time.year, date_time.month + 1, 1)
 
 
+def get_midnight(date_time):
+    """ Returns a datetime of midnight (start) of the given day
+
+    """
+    return datetime(date_time.year, date_time.month, date_time.day)
+
+
 def get_timestamp(date_time):
     """ Return the UTC timestamp for the given date
 
