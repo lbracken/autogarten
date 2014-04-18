@@ -43,6 +43,11 @@ def get_mongodb_connection(collection_name):
     return client["autogartenDB"][collection_name]
 
 
+def get_probe_status_collection():
+    collection = get_mongodb_connection("probe_status")
+    return collection
+
+
 def get_sensor_data_collection():
     collection = get_mongodb_connection("sensor_data")
     return collection

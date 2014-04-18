@@ -17,14 +17,16 @@ from probe_sync import ProbeSync
 
 import date_util
 
+db_probe_status = None
 db_sensor_data = None
 
 probe_sync_interval = 1 * 60 * 60 # Probe sync interval in seconds
 
 def init_db():
-    global db_sensor_data
+    global db_probe_status, db_sensor_data
 
     # Init DB
+    db_probe_status = mongo.get_probe_status_collection()
     db_sensor_data = mongo.get_sensor_data_collection()
 
 
@@ -36,7 +38,7 @@ def process_probe_sync(probe_sync):
     probe_id = probe_sync.probe_id
 
     # Persist information about the probe and this sync
-    # TODO...
+    update_probe_status(probe_id, probe_sync.sync_count)
 
     # Persist any sensor data
     persist_sensor_data(probe_id, probe_sync.sensor_data)
@@ -58,6 +60,28 @@ def process_probe_sync(probe_sync):
     # control server processing, one way latency and probe processing.
     response["curr_time"] = date_util.get_current_timestamp()
     return response
+
+
+def update_probe_status(probe_id, sync_count):
+    """ Persist information about this probe and its sync
+
+    """
+
+    now = datetime.now()
+    update_set = {
+        "probe_id" : probe_id,
+        "last_contact" : now,
+    }
+
+    if sync_count < 1:
+        update_set["active_since"] = now
+
+    db_probe_status.update(
+        {"_id" : probe_id}, {
+            "$set" : update_set,
+            "$inc" : {"sync_count" : 1},
+            "$setOnInsert" : {"first_contact" : now}
+        }, True)  # True for upsert
 
 
 def persist_sensor_data(probe_id, sensor_data):
