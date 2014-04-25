@@ -31,7 +31,7 @@ app = Flask(__name__)
 verbose = False
 
 token = None
-time_diff_threshold = 5  # 5 seconds
+time_diff_threshold = 5  # Value read from settings, but default of 5s.
 
 def init_config():
     """ Read settings from config file
@@ -48,7 +48,9 @@ def init_config():
 
 @app.route("/")
 def main_page():
-    return render_template("index.html")
+    # Get and return a list of all probes in the system
+    probe_status = probe_service.get_probe_status()
+    return render_template("index.html", probe_status=probe_status)
 
 
 @app.route("/probe_sync", methods=['POST'])

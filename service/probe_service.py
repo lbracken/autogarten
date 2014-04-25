@@ -30,6 +30,15 @@ def init_db():
     db_sensor_data = mongo.get_sensor_data_collection()
 
 
+def get_probe_status():
+    """ Returns status information on all probes in the system
+
+    """
+    db_query = {}
+    probe_status = db_probe_status.find(db_query)
+    return probe_status
+
+
 def process_probe_sync(probe_sync):
     """ Processes a probe sync request.
 

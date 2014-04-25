@@ -1,0 +1,149 @@
+/* autogarten : https://github.com/lbracken/autogarten
+   :license: MIT, see LICENSE for more details.
+
+   Arduino colors: http://arduino.cc/en/Trademark/CommunityLogo
+*/
+* {
+  margin: 0px;
+}
+
+html, body {
+  padding: 0px;
+  margin: 10px;
+  background-color: #f5f5fb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  font-family: 'Droid Sans', 'sans-serif';
+  font-size: 1em;
+}
+
+body {
+  margin: 0 1em 45px 1em; /* bottom = footer height */
+}
+
+A:link    {color: #76A0C9; text-decoration: none;}
+A:visited {color: #76A0C9; text-decoration: none;}
+A:hover   {color: #76A0C9; text-decoration: underline;}
+A:active  {color: #76A0C9; outline: none;}
+A:focus   {-moz-outline-style: none;}
+
+img {border: none;}
+.clearPanel {clear: both;}
+
+#header {
+  margin-bottom: 1em;
+}
+
+#header h1{
+  font-size: 3.5em;
+  color: #00878F;  
+}
+
+.probeSection {
+  padding: 1em;
+  margin: 1em;
+}
+
+.probeHeader {
+  border-bottom: 1px solid #CCC;
+  margin-bottom: 1em;
+}
+
+.probeHeader .probeId {
+  margin-left: .25em;
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #E47128;
+}
+
+.probeHeader .probeDesc {
+  margin-left: 2em;
+  color: #666;
+}
+
+.probeDetails {
+  padding: 1em;
+  background-color: #BCBCA4;
+  box-shadow: 4px 4px 4px #CCC;
+  float: left;
+}
+
+
+.instrumentSectionHeader {
+  font-size: 1.5em;
+  vertical-align: top; 
+  border-bottom: 1px dotted #CCC;
+  color: #00878F;
+}
+
+.instrumentDetails {
+  padding: 0em 1em;
+  margin-left: 1em;
+  border-left: 2px solid #CCC;
+  float: left;
+}
+
+.resultsTable {
+  margin: .5em 1em 2em 1em;
+  border-collapse: collapse;
+  width: 99%;
+}
+
+.resultsTable th {
+  color: #666;
+  font-weight: normal;
+}
+
+.resultsTable th, .resultsTable td {
+  padding: .25em 1em .25em 1em;
+  vertical-align: top;
+  text-align: left;
+}
+
+.resultsTable td {
+  font-size: 1.25em;
+}
+
+.resultsTable tbody tr:nth-child(odd) {
+  background: #eee;
+}
+
+.resultsTable tbody tr:hover {
+  background: #ddd;
+}
+
+.sparkline {
+  width: 150px;
+  height: 25px;
+}
+
+.sparkline path {
+  stroke: #E47128;
+  stroke-width: 1;
+  fill: none;
+}
+
+#footer {
+  /* Sticky footer: http://mystrd.at/modern-clean-css-sticky-footer/ */
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 45x;
+  width: 100%;
+  border-top: 1px dotted #666;
+  padding: 15px 0 15px 0;
+  color: #666 !important;
+}
+
+#footer-inner {
+  margin-left: 100px;
+  vertical-align: middle;
+}
+
+#footer A:link, A:visited, A:hover, A:active {
+  color: #666 !important;
+}
