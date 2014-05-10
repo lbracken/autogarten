@@ -43,14 +43,17 @@ def init_config():
     config.read("settings.cfg")
 
     token = config.get("control_server", "token")
-    time_diff_threshold = config.getint("control_server", "time_diff_threshold") 
+    time_diff_threshold = config.getint("control_server", "time_diff_threshold")
+
+    # Setup Jinja Filters
+    app.jinja_env.filters['format_number'] = format_number
+    app.jinja_env.filters['format_date'] = format_date
 
 
 @app.route("/")
 def main_page():
-    # Get and return a list of all probes in the system
-    probe_status = probe_service.get_probe_status()
-    return render_template("index.html", probe_status=probe_status)
+    probe_overview = probe_service.get_probe_overview()
+    return render_template("index.html", probe_overview=probe_overview)
 
 
 @app.route("/probe_sync", methods=['POST'])
@@ -103,6 +106,30 @@ def probe_sync():
         print "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
 
     return make_response(jsonify(response))
+
+
+def format_number(value):
+    """ Used as custom Jinja Filter to format numbers
+
+    """
+    return "%0.2f" % float(value)
+
+
+def format_date(value):
+    """ Used as custom Jinja Filter to format dates
+
+    """
+    today = datetime.today()
+
+    # If the date is from today...
+    if date_util.is_same_day(value, today):
+        return "Today at " + value.strftime('%H:%M:%S')
+
+    # If the date is from this year...
+    if date_util.is_same_year(value, today):
+        return value.strftime('%b %d at %H:%M')        
+
+    return value.strftime('%b %d, %Y')
 
 
 def parse_args():

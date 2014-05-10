@@ -15,31 +15,31 @@
   </div>
 </header>
 
-{% for probe in probe_status %}
+{% for probe in probe_overview %}
 <div class="probeSection">
   <div class="probeHeader">
-    <span class="probeId">{{probe.probe_id}}</span>
-    <span class="probeDesc">Mock probe, generates interesting fake data with Python</span>
+    <span class="probeId">{{probe.id}}</span>
+    <span class="probeDesc">{{probe.desc}}</span>
   </div>
   <div class="probeInfo">
     <div class="probeDetails">
       <table class="probeDetailsTable">
-        <tr>
+      	<tr>
           <td>Last Contact:</td>
-          <td>{{probe.last_contact}}</td>
+          <td>{{probe.last_contact|format_date}}</td>
         </tr><tr>
-          <td>Active Since:</td>
-          <td>{{probe.active_since}}</td>
+          <td>Last Restart:</td>
+          <td>{{probe.last_restart|format_date}}</td>
         </tr><tr>
           <td>First Contact:</td>
-          <td>{{probe.first_contact}}</td>
+          <td>{{probe.first_contact|format_date}}</td>
         </tr><tr>
           <td>Sync Count:</td>
           <td>{{probe.sync_count}}</td>
         </tr>
       </table>
       <br/>
-      <a href="">> View Configuration</a>
+      <a href="TODO">> View Configuration</a>
     </div>
     <div class="instrumentDetails">
       <div class="instrumentSectionHeader">
@@ -52,31 +52,31 @@
           <tr>
             <th>Sensor Id</th>
             <th>Current</th>
+            <th>Average</th>
             <th>Recent Week</th>
+            <th>Low/High</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>soil_temp</td>
-            <td>75&deg; </td>
-            <td><div class="sparkline" data='{"min_value" : 0, "max_value" : 10, "values" : [3, 6, 2, 7, 5, 2, 1, 3, 8, 9, 2, 5, 9, 3, 6, 3, 6, 2, 7, 5, 2, 1, 3, 8, 9, 2, 5, 9, 2, 7, 5, 2, 1, 3, 8, 9, 2, 5, 9, 3, 6, 2, 7, 5, 2, 1, 3, 8, 9, 2, 5, 9]}'></div></td>
-            <td>67&deg; to 82&deg;</td>
-          </tr><tr>
-            <td>air_temp</td>
-            <td>82&deg; </td>
-           <td><div class="sparkline" data='{"min_value" : 0, "max_value" : 10, "values" : [0,5,10,5,0,10,0]}'></div></td>
-            <td>44&deg; to 94&deg;</td>
-          </tr><tr>
-            <td>light_level</td>
-            <td>0.97</td>
-            <td><div class="sparkline" data='{"min_value" : 0, "max_value" : 10, "values" : [10,9,8,7,6,5,4,3,2,1,2,3,4,5,6,7,8,9,10]}'></div></td>
-            <td>0.12 to 1.0</td>
-          </tr><tr>
-            <td>soil_mositure</td>
-            <td>85%</td>
-            <td><div class="sparkline" data='{"min_value" : 0, "max_value" : 10, "values" : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]}'></div></td>
-            <td>56% to 95%</td>
-          </tr>
+
+          {% for sensor in probe.sensors %}
+            <tr>
+              <td>{{sensor.id}}</td>
+              <td>{{sensor.curr_value|format_number}}{{sensor.units_label|safe}}</td>
+              <td>{{sensor.avg_value|format_number}}{{sensor.units_label|safe}}</td>
+              <td><div class="sparkline" data='{
+              	"min_value" : {{sensor.min_value-0.1}},
+              	"max_value" : {{sensor.max_value+0.1}},
+              	"values" : [{{ sensor.data|join(', ')}}] }'> </div>
+              </td>              
+              <td class="center-align">
+                {{sensor.min_value|format_number}}{{sensor.units_label|safe}}
+                / 
+                {{sensor.max_value|format_number}}{{sensor.units_label|safe}}
+              </td>
+            </tr>
+          {% endfor %}
+
         </tbody>
       </table>
 
@@ -84,9 +84,9 @@
         <span class="actuatorIcon"></span>
         Actuators
       </div>
-
     </div>
-    <div class="clearPanel"/>
+
+    <div class="clearPanel"></div>
   </div>
 </div>
 {% endfor %}
@@ -115,6 +115,8 @@
           paper.path(iconSVG).attr({fill: "#293134", stroke: "none"}).transform(transform);
         }
       }
+
+      renderIconSVG(".leafIcon", 36, "s1.25", "M24.485,2c0,8-18,4-18,20c0,6,2,8,2,8h2c0,0-3-2-3-8c0-4,9-8,9-8s-7.981,4.328-7.981,8.436C21.239,24.431,28.288,9.606,24.485,2z");
 
       renderIconSVG(".probeIcon", 36, "s1.26", "M26.33,15.836l-3.893-1.545l3.136-7.9c0.28-0.705-0.064-1.505-0.771-1.785c-0.707-0.28-1.506,0.065-1.785,0.771l-3.136,7.9l-4.88-1.937l3.135-7.9c0.281-0.706-0.064-1.506-0.77-1.786c-0.706-0.279-1.506,0.065-1.785,0.771l-3.136,7.9L8.554,8.781l-1.614,4.066l2.15,0.854l-2.537,6.391c-0.61,1.54,0.143,3.283,1.683,3.895l1.626,0.646L8.985,26.84c-0.407,1.025,0.095,2.188,1.122,2.596l0.93,0.369c1.026,0.408,2.188-0.095,2.596-1.121l0.877-2.207l1.858,0.737c1.54,0.611,3.284-0.142,3.896-1.682l2.535-6.391l1.918,0.761L26.33,15.836z");
 

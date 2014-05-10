@@ -9,7 +9,7 @@
 
 html, body {
   padding: 0px;
-  margin: 10px;
+  margin: 0px;
   background-color: #f5f5fb;
 }
 
@@ -18,11 +18,11 @@ html {
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
   font-family: 'Droid Sans', 'sans-serif';
-  font-size: 1em;
+  font-size: .75em;
 }
 
 body {
-  margin: 0 1em 45px 1em; /* bottom = footer height */
+  margin: 0 1em 65px 1em; /* bottom = footer height */
 }
 
 A:link    {color: #76A0C9; text-decoration: none;}
@@ -35,7 +35,7 @@ img {border: none;}
 .clearPanel {clear: both;}
 
 #header {
-  margin-bottom: 1em;
+  margin: 1em;
 }
 
 #header h1{
@@ -45,7 +45,7 @@ img {border: none;}
 
 .probeSection {
   padding: 1em;
-  margin: 1em;
+  margin: 1em 1em 5em 1em;
 }
 
 .probeHeader {
@@ -101,7 +101,6 @@ img {border: none;}
 .resultsTable th, .resultsTable td {
   padding: .25em 1em .25em 1em;
   vertical-align: top;
-  text-align: left;
 }
 
 .resultsTable td {
@@ -115,6 +114,13 @@ img {border: none;}
 .resultsTable tbody tr:hover {
   background: #ddd;
 }
+
+/* Set column alignment */
+.resultsTable tr td:nth-child(1) { text-align: left; }   /* Sensor Id */
+.resultsTable tr td:nth-child(2) { text-align: right; font-weight: bold;}  /* Current */
+.resultsTable tr td:nth-child(3) { text-align: right; }  /* Average */
+.resultsTable tr td:nth-child(4) { text-align: center; } /* Sparkline */
+.resultsTable tr td:nth-child(5) { text-align: center; } /* Low/High */
 
 .sparkline {
   width: 150px;
@@ -132,7 +138,7 @@ img {border: none;}
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 45x;
+  height: 65px;
   width: 100%;
   border-top: 1px dotted #666;
   padding: 15px 0 15px 0;

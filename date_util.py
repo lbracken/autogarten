@@ -47,6 +47,7 @@ def get_current_timestamp():
     """
     return get_timestamp(datetime.now())
 
+
 def pad_month_day_value(to_pad):
     """ Pads the given month or day value with a preceding '0' if
         needed. For example, turns 2 into '02.  Returned result will
@@ -55,11 +56,25 @@ def pad_month_day_value(to_pad):
     return str(to_pad if to_pad > 9 else "0%d" % to_pad)
 
 
+def is_same_day(day_1, day_2):
+    """ Return true if the two given dates are the same day
+
+    """
+    return is_same_month(day_1, day_2) and (day_1.day == day_2.day)
+
+
 def is_same_month(month_1, month_2):
     """ Return true if the two given dates are in the same month
 
     """
-    if (month_1 == None or month_2 == None):
+    return is_same_year(month_1, month_2) and (month_1.month == month_2.month)
+
+
+def is_same_year(year_1, year_2):
+    """ Return true if the two given dates are in the same year
+
+    """
+    if (year_1 == None or year_2 == None):
         return False
 
-    return (month_1.month == month_2.month) and (month_1.year == month_2.year)
+    return (year_1.year == year_2.year)    
