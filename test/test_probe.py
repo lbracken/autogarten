@@ -79,7 +79,7 @@ def send_probe_sync_request():
 
     # Schedule a timer for the next probe sync
     next_probe_sync = get_next_timer_interval(response_content["interval"])
-    exec_data = datetime.fromtimestamp(next_probe_sync)
+    exec_data = datetime.fromtimestamp(next_probe_sync+1)
     sched.add_date_job(send_probe_sync_request, exec_data, [])
 
     # Unschedule any sensor jobs (intervals)
