@@ -152,4 +152,5 @@ if __name__ == "__main__":
     init_config()
 
     print "----------------------------------< autogarten Control Server >----"
-    app.run(debug=True) # If running directly from the CLI, run in debug mode.
+    #app.run(debug=True)
+    app.run(host='0.0.0.0') # If running directly from the CLI, run in debug mode.
