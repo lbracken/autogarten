@@ -83,7 +83,6 @@ char *oneWireSensorIds[maxOneWireDevices];
 
 void setup() {
   Serial.begin(9600);
-  Serial.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> Starting autogarten probe");
   
   // Initialize the probe and wifi configuration
   initProbe("autogarten_probe", "-----", 5000, "changeme");
@@ -105,7 +104,7 @@ void loop() {
   delay(5000);
   
   Serial.println();
-  Serial.print("Free Memory: ");
+  Serial.print("Mem:");
   Serial.println(memoryFree());
   
   readAnalogGenericSensor("light_level_1");
@@ -171,16 +170,15 @@ void connectToWiFi() {
     // Increment, then verify within allowable connection attempts...
     connectionAttempts++;
     if (connectionAttempts > maxWiFiConnectionAttempts) {
-      Serial.println("... connection failure.  Max attemps reached.");
+      Serial.println("failure");
       return; 
     }    
 
     // Log the attempt to connect...
-    Serial.print("Connecting to WiFi network '");
+    Serial.print("Conn to ");
     Serial.print(wifiSSID);
-    Serial.print("'.  Attempt #");
-    Serial.print(connectionAttempts);
-    Serial.println("...");
+    Serial.print(" Attempt ");
+    Serial.println(connectionAttempts);
     
     // Connect to WiFi, wait a few seconds for connection to establish...
     wifiStatus = WiFi.begin(wifiSSID, wifiPassword);
@@ -188,7 +186,7 @@ void connectToWiFi() {
   }
   
   // Once connected, print connection information
-  Serial.print("... connection successful IP:");
+  Serial.print("success. IP:");
   Serial.print(WiFi.localIP());
   Serial.print(" RSSI:");
   Serial.println(WiFi.RSSI());
@@ -223,17 +221,16 @@ void syncWithControlServer() {
     connectionAttempts++;
     
     // Log the attempt to connect...
-    Serial.print("Connecting to Control Server [");
+    Serial.print("Conn to ");
     Serial.print(controlServerAddress);
     Serial.print(":");
     Serial.print(controlServerPort);
-    Serial.print("].  Attempt #");
-    Serial.print(connectionAttempts);
-    Serial.println("...");
+    Serial.print(" Attempt ");
+    Serial.println(connectionAttempts);
     
     // Connect to control server
     if (wifiClient.connect(controlServerAddress, controlServerPort)) {
-      Serial.println("... connected to Control Server");
+      Serial.println("sync'ing");
       String requestBody = createProbeSyncRequest(connectionAttempts);
       Serial.println(requestBody);
       
@@ -248,7 +245,7 @@ void syncWithControlServer() {
     
       // Set request body and send request
       wifiClient.println(requestBody);
-      Serial.println("... sync complete");
+      Serial.println("done");
  
       // TODO: If WiFi persistent connections are off, then we should disconnect here once request has been sent.     
             
@@ -257,7 +254,7 @@ void syncWithControlServer() {
     }
   }
   
-  Serial.println("... failed to connect to Control Server.  Max attemps reached."); 
+  Serial.println("failure"); 
 }
 
 /**
@@ -269,22 +266,22 @@ String createProbeSyncRequest(int connectionAttempts) {
   //  * https://github.com/not404/json-arduino
   //  * https://github.com/interactive-matter/aJson
   
-  String syncRequest = "{\"probe_id\": \"";
+  String syncRequest = "{\"probe_id\":\"";
   syncRequest += probeId;
-  syncRequest += "\", ";
-  syncRequest += "\"token\": \"";
+  syncRequest += "\",";
+  syncRequest += "\"token\":\"";
   syncRequest += controlServerToken;
-  syncRequest += "\", ";
-  syncRequest += "\"sync_count\": ";
+  syncRequest += "\",";
+  syncRequest += "\"sync_count\":";
   syncRequest += controlServerSyncCount;
-  syncRequest += ", ";
-  syncRequest += "\"curr_time\": ";
+  syncRequest += ",";
+  syncRequest += "\"curr_time\":";
   syncRequest += 1399838400;
-  syncRequest += ", ";  // TODO: Set current time
-  syncRequest += "\"connection_attempts\": ";
+  syncRequest += ",";  // TODO: Set current time
+  syncRequest += "\"connection_attempts\":";
   syncRequest += connectionAttempts;
-  syncRequest += ", ";
-  syncRequest += "\"sensor_data\": []";
+  syncRequest += ",";
+  syncRequest += "\"sensor_data\":[]";
   syncRequest += "}";
   
   return syncRequest;
@@ -298,24 +295,22 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
   
   // Verify a reserved PIN isn't being used... 
   if (pin == 7 || pin == 10 || pin == 11 || pin == 12 || pin ==13) {
-    Serial.println("ERROR 100");
+    printErrorCode(100);
     return false;
   }
 
   switch (sensorType) {
     
     case SENSOR_TYPE_ANALOG_GENERIC:
-      if (!isAnalogPin(pin)) {        
-        Serial.print(sensorId);
-        Serial.println(" ERROR 101");
+      if (!isAnalogPin(pin)) {
+        printErrorCode(101);
         return false;
       }       
       break;
       
     case SENSOR_TYPE_DIGITAL_GENERIC:
       if (!isDigitalPin(pin)) {
-        Serial.print(sensorId);
-        Serial.println(" ERROR 102");
+        printErrorCode(102);
         return false;
       }
       pinMode(pin, INPUT);      
@@ -323,13 +318,12 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
 
     case SENSOR_TYPE_ONEWIRE_TEMP:
       if (pin != oneWirePin) {
-        Serial.print(sensorId);
-        Serial.println(" ERROR 103");
+        printErrorCode(103);
         return false;
       }
       
       if (oneWireDeviceCount >= maxOneWireDevices) {
-        Serial.println(" ERROR 104");
+        printErrorCode(104);
         return false;
       }      
       
@@ -338,14 +332,15 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
       break;
 
     default:
-        Serial.print(sensorId);
-        Serial.println(" ERROR 105"); 
+        printErrorCode(105);
+        return false;
   }
 
   sensorIds[pin] = sensorId;  
+  Serial.print("+");
   Serial.print(sensorIds[pin]);
-  Serial.print(" added on pin ");
-  Serial.println(pin);  
+  Serial.print(":");
+  Serial.println(pin);
   return true;
 }
 
@@ -439,24 +434,23 @@ float readOneWireTempSensor(char *sensorId) {
     }    
     
     // Print the device's unique 64-bit ROM code
-    /*Serial.print(" * R=");
-    for( i = 0; i < 8; i++) {
-      Serial.print(addr[i], HEX);
-      Serial.print(" ");
-    }
-    Serial.println("---");   
-    */
+    //Serial.print(" * R=");
+    //for( i = 0; i < 8; i++) {
+    //  Serial.print(addr[i], HEX);
+    //  Serial.print(" ");
+    //}
+    //Serial.println("---");
     
     // Verify valid CRC, if not return error value
     if (OneWire::crc8( addr, 7) != addr[7]) {
-      Serial.println("ERROR 201");
+      printErrorCode(201);
       return ERROR_VALUE;
     }
     
     // Verify is chip is a DS18B20, if not return error value.
     // The first ROM byte indicates which chip (0x28 = DS18B20).
     if(addr[0] != 0x28) {
-      Serial.println("ERROR 202");
+      printErrorCode(202);
       return ERROR_VALUE;
     }
     
@@ -486,7 +480,7 @@ float readOneWireTempSensor(char *sensorId) {
     return value;
   }
 
-  Serial.println("ERROR 200");
+  printErrorCode(200);
   return ERROR_VALUE;
 }
 
@@ -496,10 +490,19 @@ float readOneWireTempSensor(char *sensorId) {
  */
 void printSensorResult(char *sensorId, int pin, float value) {
   Serial.print(sensorId);
-  Serial.print(" on ");
+  Serial.print(":");
   Serial.print(pin);
-  Serial.print(" = ");
+  Serial.print("=");
   Serial.println(value);  
+}
+
+
+/**
+ * Prints our an error code.  Putting into function to optimize space
+ */
+void printErrorCode(int errorCode) {
+  Serial.print("ERROR ");
+  Serial.println(errorCode);
 }
 
 
