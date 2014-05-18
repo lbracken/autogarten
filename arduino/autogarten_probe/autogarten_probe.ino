@@ -51,9 +51,9 @@ const int SENSOR_TYPE_ONEWIRE_TEMP = 3;
 const int ERROR_VALUE = -1000;
 
 const int oneWirePin = 9;
-const int maxOneWireDevices = 3;
+const int maxOneWireDevices = 2;  // Adjust to number of 1-Wire devices
 int oneWireDeviceCount = 0;
-OneWire oneWire(9);
+OneWire oneWire(oneWirePin);
 
 /* WiFi variables */
 const int wifiConnectionWait = 10000;  // In ms
@@ -296,7 +296,11 @@ String createProbeSyncRequest(int connectionAttempts) {
  */ 
 boolean addSensor(char *sensorId, int pin, int sensorType) {
   
-  // TODO: Verify a reserved PIN isn't being used... 
+  // Verify a reserved PIN isn't being used... 
+  if (pin == 7 || pin == 10 || pin == 11 || pin == 12 || pin ==13) {
+    Serial.println("ERROR 100");
+    return false;
+  }
 
   switch (sensorType) {
     
