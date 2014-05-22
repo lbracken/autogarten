@@ -9,8 +9,7 @@
  *    * Arduino WIFI Shield (R3)
  *    * Arduino v1.0.4+ (tested with 1.0.5)
  *    * Arduino WiFi library
- *    * OneWire library: http://playground.arduino.cc/Learning/OneWire
- *
+ *    * (1-Wire) OneWire library: http://playground.arduino.cc/Learning/OneWire
  *
  *  !!! Important -- Reserved PINs !!!
  *
@@ -33,9 +32,9 @@
  *   103   Must specify the OneWire pin.
  *   104   Too many OneWire devices. Increase maxOneWireDevices.
  *   105   Invalid sensor type   
- *   200   No 1-wire devices found
+ *   200   No Onewire devices found
  *   201   Invalid CRC
- *   202   Unsupported 1-wire device type
+ *   202   Unsupported OneWire device type
  *
  *
  * https://github.com/lbracken/autogarten
@@ -44,30 +43,28 @@
 #include <WiFi.h>
 #include <OneWire.h>
 
-const int SENSOR_TYPE_ANALOG_GENERIC = 1;
-const int SENSOR_TYPE_DIGITAL_GENERIC = 2;
-const int SENSOR_TYPE_ONEWIRE_TEMP = 3;
+const byte SENSOR_TYPE_ANALOG_GENERIC  = 1;
+const byte SENSOR_TYPE_DIGITAL_GENERIC = 2;
+const byte SENSOR_TYPE_ONEWIRE_TEMP    = 3;
+const byte ERROR_VALUE = -1000;
+const byte maxConnectionAttempts = 10;  // To WiFi and Control Server
 
-const int ERROR_VALUE = -1000;
-
-const int oneWirePin = 9;
-const int maxOneWireDevices = 2;  // Adjust to number of 1-Wire devices
-int oneWireDeviceCount = 0;
+/* OneWire variables */
+const byte oneWirePin = 9;
+const byte maxOneWireDevices = 2;  // Adjust to number of OneWire devices
+byte oneWireDeviceCount = 0;
 OneWire oneWire(oneWirePin);
 
 /* WiFi variables */
-const int wifiConnectionWait = 10000;  // In ms
-const int maxWiFiConnectionAttempts = 10;
+const byte wifiConnectionWaitInSeconds = 10;
 WiFiClient wifiClient;
-int wifiStatus = WL_IDLE_STATUS;
-int wifiStatusLEDPin;
+byte wifiStatus = WL_IDLE_STATUS;
 boolean wifiPersistConnection;
 char *wifiSSID;
 char *wifiPassword;
 
 
 /* Probe and Control Server variables */
-const int maxControlServerConnectionAttempts = 10;
 char *probeId;
 char *controlServerAddress;
 int  controlServerPort;
@@ -75,18 +72,16 @@ char *controlServerToken;
 int  controlServerSyncCount = 1;
 
 /* Sensor indices */
-char *sensorIds[19];
+char *sensorIds[19];  // Digital Pins 0-13 + Analog A0 - A5
 char *oneWireSensorIds[maxOneWireDevices];
-
-
-
 
 void setup() {
   Serial.begin(9600);
+  printFreeMemory();
   
   // Initialize the probe and wifi configuration
-  initProbe("autogarten_probe", "-----", 5000, "changeme");
-  initWiFi("-----", "-----", false);
+  initProbe("PROBE-NAME", "CTRL-SRVR-IP, 5000, "changeme");
+  initWiFi("WIFI-SSID", "WIFI-PASSWORD", true);
   
   // Add any sensors
   addSensor("light_level_1", A0, SENSOR_TYPE_ANALOG_GENERIC);
@@ -96,7 +91,8 @@ void setup() {
   addSensor("air_temp", oneWirePin, SENSOR_TYPE_ONEWIRE_TEMP);
   
   // Add any actuators
-  // TODO...  
+  // TODO... 
+  printFreeMemory(); 
 }
 
 
@@ -104,8 +100,7 @@ void loop() {
   delay(5000);
   
   Serial.println();
-  Serial.print("Mem:");
-  Serial.println(memoryFree());
+  printFreeMemory();
   
   readAnalogGenericSensor("light_level_1");
   readAnalogGenericSensor("light_level_2");
@@ -113,7 +108,8 @@ void loop() {
   readOneWireTempSensor("soil_temp");
   readOneWireTempSensor("air_temp");
   
-  //syncWithControlServer();
+  syncWithControlServer();
+  printFreeMemory();
 }
 
 
@@ -164,31 +160,32 @@ void connectToWiFi() {
     return;
   }  
   
-  int connectionAttempts = 0;
+  byte connectionAttempts = 0;
   while (wifiStatus != WL_CONNECTED) {
     
     // Increment, then verify within allowable connection attempts...
     connectionAttempts++;
-    if (connectionAttempts > maxWiFiConnectionAttempts) {
-      Serial.println("failure");
+    if (connectionAttempts > maxConnectionAttempts) {
+      Serial.println(F("Failure"));
       return; 
     }    
 
     // Log the attempt to connect...
-    Serial.print("Conn to ");
+    Serial.print(F("Connecting to "));
     Serial.print(wifiSSID);
-    Serial.print(" Attempt ");
+    Serial.print(F(" Attempt "));
     Serial.println(connectionAttempts);
     
     // Connect to WiFi, wait a few seconds for connection to establish...
+    // Uses DHCP settings from WiFi router, otherwise use WiFi.config()
     wifiStatus = WiFi.begin(wifiSSID, wifiPassword);
-    delay(wifiConnectionWait);
+    delay(wifiConnectionWaitInSeconds * 1000);
   }
   
   // Once connected, print connection information
-  Serial.print("success. IP:");
+  Serial.print(F("Success. IP:"));
   Serial.print(WiFi.localIP());
-  Serial.print(" RSSI:");
+  Serial.print(F(" RSSI:"));
   Serial.println(WiFi.RSSI());
 }
 
@@ -216,36 +213,36 @@ void syncWithControlServer() {
   wifiClient.stop();
   wifiClient.flush();
   
-  int connectionAttempts = 0;
-  while (connectionAttempts <= maxControlServerConnectionAttempts) {
+  byte connectionAttempts = 0;
+  while (connectionAttempts <= maxConnectionAttempts) {
     connectionAttempts++;
     
     // Log the attempt to connect...
-    Serial.print("Conn to ");
+    Serial.print(F("Connecting to "));
     Serial.print(controlServerAddress);
     Serial.print(":");
     Serial.print(controlServerPort);
-    Serial.print(" Attempt ");
+    Serial.print(F(" Attempt "));
     Serial.println(connectionAttempts);
     
     // Connect to control server
     if (wifiClient.connect(controlServerAddress, controlServerPort)) {
-      Serial.println("sync'ing");
+      Serial.println(F("Synchronizing..."));
       String requestBody = createProbeSyncRequest(connectionAttempts);
-      Serial.println(requestBody);
+      //Serial.println(requestBody);
       
       // Setup HTTP Request Headers
-      wifiClient.println("POST /probe_sync HTTP/1.1");    
-      wifiClient.println("User-Agent: Arduino/1.0");
-      wifiClient.println("Connection: close");
-      wifiClient.println("Content-Type: application/json");
-      wifiClient.print("Content-Length: ");
+      wifiClient.println(F("POST /probe_sync HTTP/1.1"));    
+      wifiClient.println(F("User-Agent: Arduino/1.0"));
+      wifiClient.println(F("Connection: close"));
+      wifiClient.println(F("Content-Type: application/json"));
+      wifiClient.print(F("Content-Length: "));
       wifiClient.println(requestBody.length());
       wifiClient.println();
     
       // Set request body and send request
       wifiClient.println(requestBody);
-      Serial.println("done");
+      Serial.println(F("... sync complete"));
  
       // TODO: If WiFi persistent connections are off, then we should disconnect here once request has been sent.     
             
@@ -254,18 +251,15 @@ void syncWithControlServer() {
     }
   }
   
-  Serial.println("failure"); 
+  Serial.println(F("Failure")); 
 }
+
 
 /**
  * Construct the body of a probe sync request to the control server
  */
 String createProbeSyncRequest(int connectionAttempts) {
-  
-  // TODO: Start using a proper JSON library here.  Some options could include..
-  //  * https://github.com/not404/json-arduino
-  //  * https://github.com/interactive-matter/aJson
-  
+
   String syncRequest = "{\"probe_id\":\"";
   syncRequest += probeId;
   syncRequest += "\",";
@@ -291,10 +285,10 @@ String createProbeSyncRequest(int connectionAttempts) {
 /*
  * Adds the given sensor to this probe
  */ 
-boolean addSensor(char *sensorId, int pin, int sensorType) {
+boolean addSensor(char *sensorId, byte pin, byte sensorType) {
   
   // Verify a reserved PIN isn't being used... 
-  if (pin == 7 || pin == 10 || pin == 11 || pin == 12 || pin ==13) {
+  if (pin == 7 || pin == 10 || pin == 11 || pin == 12 || pin == 13) {
     printErrorCode(100);
     return false;
   }
@@ -327,7 +321,7 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
         return false;
       }      
       
-      // 1-wire devices share a pin, so set the sensorId in the 1-wire array      
+      // OneWire devices share a pin, so set the sensorId in the OneWire array      
       oneWireSensorIds[oneWireDeviceCount++] = sensorId;
       break;
 
@@ -337,9 +331,9 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
   }
 
   sensorIds[pin] = sensorId;  
-  Serial.print("+");
+  Serial.print('+');
   Serial.print(sensorIds[pin]);
-  Serial.print(":");
+  Serial.print(':');
   Serial.println(pin);
   return true;
 }
@@ -349,8 +343,7 @@ boolean addSensor(char *sensorId, int pin, int sensorType) {
  * Returns the pin for the given sensorId
  */
 int getPinForSensorId(char *sensorId) {
-  int ctr;
-  for (ctr=0; ctr < sizeof(sensorIds)/sizeof(char); ctr++) {
+  for (byte ctr=0; ctr < sizeof(sensorIds)/sizeof(char); ctr++) {
     if (sensorIds[ctr] == sensorId) {
       return ctr;
     }
@@ -381,7 +374,7 @@ boolean isAnalogPin(int pin) {
  *  + ...
  */ 
 float readAnalogGenericSensor(char *sensorId) {
-  int pin = getPinForSensorId(sensorId);
+  byte pin = getPinForSensorId(sensorId);
   float value = analogRead(pin);
   
   printSensorResult(sensorId, pin, value);
@@ -394,9 +387,9 @@ float readAnalogGenericSensor(char *sensorId) {
  *  + Switches
  *  + ...
  */ 
-int readDigitalGenericSensor(char *sensorId) {
-  int pin = getPinForSensorId(sensorId);
-  int value = digitalRead(pin);
+byte readDigitalGenericSensor(char *sensorId) {
+  byte pin = getPinForSensorId(sensorId);
+  byte value = digitalRead(pin);
   
   printSensorResult(sensorId, pin, value);
   return value;
@@ -404,12 +397,12 @@ int readDigitalGenericSensor(char *sensorId) {
 
 
 /*
- * Using the OneWire library, reads temperature from a 1-wire device.
+ * Using the OneWire library, reads temperature from a OneWire device.
  * See: http://playground.arduino.cc/Learning/OneWire
  *
  * !! Important !!
  *     This function has been streamlined to ONLY support a DS18S20 digital thermometer
- *     running in non-parasitic power mode.  If using another 1-wire device then changes
+ *     running in non-parasitic power mode.  If using another OneWire device then changes
  *     are required. See the Arduino OneWire page for details and code. 
  *
  *     Note that multiple DS18S20 devices can be wired together on the same bus.
@@ -420,7 +413,7 @@ int readDigitalGenericSensor(char *sensorId) {
  */
 float readOneWireTempSensor(char *sensorId) {
   
-  int deviceCount = 0;
+  byte deviceCount = 0;
   byte addr[8];  
   
   // Iterate over all devices on the OneWire bus
@@ -454,20 +447,20 @@ float readOneWireTempSensor(char *sensorId) {
       return ERROR_VALUE;
     }
     
-    // Reset the 1-Wire bus, select a device then start a conversion
+    // Reset the OneWire bus, select a device then start a conversion
     oneWire.reset();
     oneWire.select(addr);
     oneWire.write(0x44);  
     delay(800);
     
-    // Reset the 1-Wire bus, select a device then read scratchpad
+    // Reset the OneWire bus, select a device then read scratchpad
     oneWire.reset();
     oneWire.select(addr);    
     oneWire.write(0xBE);
 
     // Read the data on the bus (9 bytes)
     byte data[12];
-    for (int i = 0; i < 9; i++) {
+    for (byte i = 0; i < 9; i++) {
       data[i] = oneWire.read();
     }
     
@@ -490,9 +483,9 @@ float readOneWireTempSensor(char *sensorId) {
  */
 void printSensorResult(char *sensorId, int pin, float value) {
   Serial.print(sensorId);
-  Serial.print(":");
+  Serial.print(':');
   Serial.print(pin);
-  Serial.print("=");
+  Serial.print('=');
   Serial.println(value);  
 }
 
@@ -501,7 +494,7 @@ void printSensorResult(char *sensorId, int pin, float value) {
  * Prints our an error code.  Putting into function to optimize space
  */
 void printErrorCode(int errorCode) {
-  Serial.print("ERROR ");
+  Serial.print(F("ERROR "));
   Serial.println(errorCode);
 }
 
@@ -527,5 +520,10 @@ int memoryFree() {
   else
     freeValue = ((int)&freeValue) - ((int)__brkval);
   return freeValue; 
+}
+
+void printFreeMemory() {
+  Serial.print(F("Free Memory:"));
+  Serial.println(memoryFree()); 
 }
 
