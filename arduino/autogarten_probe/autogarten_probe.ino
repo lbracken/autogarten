@@ -9,6 +9,7 @@
  *    * Arduino WIFI Shield (R3)
  *    * Arduino v1.0.4+ (tested with 1.0.5)
  *    * Arduino WiFi library
+ *    * Arduino Time Library http://playground.arduino.cc/Code/Time
  *    * (1-Wire) OneWire library: http://playground.arduino.cc/Learning/OneWire
  *
  *  !!! Important -- Reserved PINs !!!
@@ -42,6 +43,7 @@
  */
 #include <WiFi.h>
 #include <OneWire.h>
+#include <Time.h>
 
 const byte SENSOR_TYPE_ANALOG_GENERIC  = 1;
 const byte SENSOR_TYPE_DIGITAL_GENERIC = 2;
@@ -227,21 +229,73 @@ void syncWithControlServer() {
     
     // Connect to control server
     if (wifiClient.connect(controlServerAddress, controlServerPort)) {
-      Serial.println(F("Synchronizing..."));
-      String requestBody = createProbeSyncRequest(connectionAttempts);
-      //Serial.println(requestBody);
+      Serial.println(F("Synchronizing..."));      
+     
       
       // Setup HTTP Request Headers
       wifiClient.println(F("POST /probe_sync HTTP/1.1"));    
       wifiClient.println(F("User-Agent: Arduino/1.0"));
       wifiClient.println(F("Connection: close"));
       wifiClient.println(F("Content-Type: application/json"));
+      
+      // Set request body and send request
+      String requestBody = createProbeSyncRequest(connectionAttempts);
+      //Serial.println(requestBody);
       wifiClient.print(F("Content-Length: "));
       wifiClient.println(requestBody.length());
       wifiClient.println();
-    
-      // Set request body and send request
       wifiClient.println(requestBody);
+      
+      // Wait for response from server...
+      // TODO: There has to be a better way than just wait n seconds...
+      delay(5000);      
+      printFreeMemory();
+      
+      // Read the first line of the HTTP Response.  It should contain the 
+      // HTTP Response Code.  Only continue if it's 200 OK. (LineFeed=10)
+      String response = wifiClient.readStringUntil(10);
+      if (response.indexOf("200 OK") < 0) {
+        Serial.println(response);
+        return;        
+      }
+    
+      printFreeMemory();    
+      
+      // Read/skipover the remaining HTTP Headers.  The HTTP Response
+      // body is reached when we encounter a double LineFeed.
+      do {
+        response = wifiClient.readStringUntil(10);
+        //Serial.println(response);     
+      } while (response.length() > 1);
+      
+      printFreeMemory();
+      
+      // Read HTTP Response Body
+      response = wifiClient.readString();
+      Serial.println(response);
+      
+      // TODO: Improve this very hackish parsing of the JSON response.
+      // Using a proper JSON parsing library would be ideal, however, no suitable 
+      // one could be found that worked well and didn't use too much memory.  For
+      // now just manually parsing the known response by hand to save resources,
+      // but it makes for brittle code.
+      //
+      // Some libraries to try out again...
+      //   * https://github.com/not404/json-arduino  (No support for nested objects)
+      //   * https://github.com/interactive-matter/aJson
+      //   * https://github.com/bblanchon/ArduinoJsonParser
+      //
+      //
+      
+      printFreeMemory();
+      long currTime = getValueFromJSON(response, "curr_time", true).toInt();
+      setTime(currTime);
+      long nextSync = currTime + getValueFromJSON(response, "interval", true).toInt();      
+
+      Serial.println(currTime);
+      Serial.println(now());
+      Serial.println(nextSync);
+      printFreeMemory();
       Serial.println(F("... sync complete"));
  
       // TODO: If WiFi persistent connections are off, then we should disconnect here once request has been sent.     
@@ -270,7 +324,7 @@ String createProbeSyncRequest(int connectionAttempts) {
   syncRequest += controlServerSyncCount;
   syncRequest += ",";
   syncRequest += "\"curr_time\":";
-  syncRequest += 1399838400;
+  syncRequest += timeStatus() ? now() : 0;
   syncRequest += ",";  // TODO: Set current time
   syncRequest += "\"connection_attempts\":";
   syncRequest += connectionAttempts;
@@ -279,6 +333,32 @@ String createProbeSyncRequest(int connectionAttempts) {
   syncRequest += "}";
   
   return syncRequest;
+}
+
+
+/**
+ * Returns a value for the given key from a JSON String.
+ * Very hackish and temporary until a suitable JSON parsing library can be added.
+ */
+String getValueFromJSON(String jsonString, String jsonKey, boolean replaceJSONChars) {
+  
+  int startIdx = jsonString.indexOf(jsonKey);  
+  if (startIdx < 0) {
+    return ""; 
+  }
+  
+  int endIdx = jsonString.indexOf(",", startIdx);
+  if (endIdx < 0) {
+    endIdx = jsonString.length() - 2;
+  } 
+  
+  String toReturn = jsonString.substring(startIdx+jsonKey.length(), endIdx);
+  if (replaceJSONChars) {
+    toReturn.replace('"', ' ');
+    toReturn.replace(':', ' ');
+  }
+  toReturn.trim(); 
+  return toReturn;
 }
 
 

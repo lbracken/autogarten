@@ -28,10 +28,12 @@ from probe_sync import ProbeSync
 import date_util
 
 app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+
 verbose = False
 
 token = None
-time_diff_threshold = 5  # Value read from settings, but default of 5s.
+time_diff_threshold = 30  # Value read from settings, but tolerate some difference
 
 def init_config():
     """ Read settings from config file
@@ -87,10 +89,11 @@ def probe_sync():
             (probe_sync.probe_id, request.remote_addr)
         abort(401)
 
-    # TODO: Compare probe's time with Control Server time.  Then
-    # log if the difference is significant then log.
+    # Compare probe's time with Control Server time.  Log if the
+    # difference is significant.  If the probe's current time is 0,
+    # that indicates that time hasn't yet been set on the probe.
     time_diff = date_util.get_current_timestamp() - probe_sync.curr_time
-    if math.fabs(time_diff) > time_diff_threshold:
+    if probe_sync.curr_time > 0 and math.fabs(time_diff) > time_diff_threshold:
         print "[WARN] Probe time is off by %ds" % time_diff
 
     # If the probe tried to connect to the Control Server more than
@@ -151,6 +154,6 @@ if __name__ == "__main__":
     args = parse_args()
     init_config()
 
-    print "----------------------------------< autogarten Control Server >----"
-    #app.run(debug=True)
-    app.run(host='0.0.0.0') # If running directly from the CLI, run in debug mode.
+    print "----------------------------------< autogarten Control Server >----" 
+    app.config['DEBUG'] = True  # If running directly from the CLI, run in debug mode.
+    app.run(host='0.0.0.0') 

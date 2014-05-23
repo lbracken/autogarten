@@ -266,7 +266,17 @@ def determine_sensor_commands(probe_id):
 
     if probe_id == "test_probe2":
         interval = 300   # Sensor read interval in seconds
-        sensor_commands.append({"id" : "tmp0", "interval" : interval})     
+        sensor_commands.append({"id" : "tmp0", "interval" : interval})
+
+
+    if probe_id == "autogarten_probe":
+        interval = 300   # Sensor read interval in seconds
+        sensor_commands.append({"id" : "light_level_1", "interval" : interval})    
+        #sensor_commands.append({"id" : "light_level_2", "interval" : interval}) 
+        #sensor_commands.append({"id" : "switch_1",      "interval" : interval}) 
+        #sensor_commands.append({"id" : "soil_temp",     "interval" : interval}) 
+        sensor_commands.append({"id" : "air_temp",      "interval" : interval}) 
+
 
     return sensor_commands
 
