@@ -22,7 +22,9 @@ import date_util
 db_probe_status = None
 db_sensor_data = None
 
-probe_sync_interval = 1 * 60 * 60 # Probe sync interval in seconds
+# TODO: These values should be defined in each probe's indivdual config
+probe_sync_duration = 1 * 60 # In seconds
+sensor_read_frequency = 10   # In seconds
 
 def init_db():
     global db_probe_status, db_sensor_data
@@ -100,19 +102,16 @@ def process_probe_sync(probe_sync):
     # Persist any actuator history
     # TODO...
 
-    # Determine commands for response
-    sensor_commands = determine_sensor_commands(probe_id)
-
-    # Build response
+    # Build response.  Note that curr_time will be off by remaining
+    # control server processing, one way latency and probe processing.
+    now = date_util.get_current_timestamp()
     response = {
         "probe_id" : probe_sync.probe_id,
-        "interval" : probe_sync_interval,
-        "sensor_commands" : sensor_commands
+        "curr_time" : now,
+        "next_sync" : now + probe_sync_duration,
+        "sensor_freq" : sensor_read_frequency
     }
 
-    # Finally provide time sync data.  This will be off by remaining
-    # control server processing, one way latency and probe processing.
-    response["curr_time"] = date_util.get_current_timestamp()
     return response
 
 
@@ -245,40 +244,6 @@ def get_metric_id(day, probe_id, instrument_id):
     mm = date_util.pad_month_day_value(day.month)
     dd = date_util.pad_month_day_value(day.day)
     return "%s%s%s-%s-%s" % (day.year, mm, dd, probe_id, instrument_id)
-
-
-def determine_sensor_commands(probe_id):
-    """ Determines the sensor commands for the given probe.
-
-        TODO: In the future, all commands should be determined based
-        upon a config file that the user can easily define.  However,
-        for now just hardcode the sensor command logic.
-
-    """
-    sensor_commands = []
-
-    if probe_id == "test_probe":
-        interval = 300   # Sensor read interval in seconds
-        sensor_commands.append({"id" : "tmp0", "interval" : interval})
-        sensor_commands.append({"id" : "tmp1", "interval" : interval})
-        sensor_commands.append({"id" : "pho0", "interval" : interval})
-        sensor_commands.append({"id" : "mos0", "interval" : interval})
-
-    if probe_id == "test_probe2":
-        interval = 300   # Sensor read interval in seconds
-        sensor_commands.append({"id" : "tmp0", "interval" : interval})
-
-
-    if probe_id == "autogarten_probe":
-        interval = 300   # Sensor read interval in seconds
-        sensor_commands.append({"id" : "light_level_1", "interval" : interval})    
-        #sensor_commands.append({"id" : "light_level_2", "interval" : interval}) 
-        #sensor_commands.append({"id" : "switch_1",      "interval" : interval}) 
-        #sensor_commands.append({"id" : "soil_temp",     "interval" : interval}) 
-        sensor_commands.append({"id" : "air_temp",      "interval" : interval}) 
-
-
-    return sensor_commands
 
 
 def bucketize_data(bucket_count, min_bucket, max_bucket, data):
