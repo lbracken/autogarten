@@ -88,6 +88,7 @@ Autogarten::Autogarten(char probeId[]) {
   _sensorCount = 0;
   _oneWireDeviceCount = 0;
   _currDataPoints = 0;
+  _currDataPointsOverflow = false;
 }
 
 
@@ -162,18 +163,8 @@ void Autogarten::syncWithControlServer(void (*onSyncWithControlServer)(), void (
     if (_wifiClient.connect(_ctrlSrvrAddr, _ctrlSrvrPort)) {
       Serial.println(F("Synchronizing..."));
 
-      // Setup HTTP Request Headers
-      _wifiClient.println(F("POST /probe_sync HTTP/1.1"));    
-      _wifiClient.println(F("User-Agent: Arduino/1.0"));
-      _wifiClient.println(F("Connection: close"));
-      _wifiClient.println(F("Content-Type: application/json"));
-
-      // Set request body and send request
-      String requestBody = createProbeSyncRequest(connectionAttempts);
-      _wifiClient.print(F("Content-Length: "));
-      _wifiClient.println(requestBody.length());
-      _wifiClient.println();
-      _wifiClient.println(requestBody);
+      // Create and send the probe sync request with the control server
+      sendProbeSyncRequest(connectionAttempts);
 
       // Wait for response from server...
       // TODO: There has to be a better way than just wait n seconds...
@@ -201,6 +192,7 @@ void Autogarten::syncWithControlServer(void (*onSyncWithControlServer)(), void (
 
       // Resync clock with the control server (approximately)
       long currTime = getValueFromJSON(response, "curr_time").toInt();
+      _timestampBase = currTime;
       setTime(currTime);
 
       // Schedule the next sync with the control server
@@ -436,12 +428,13 @@ void Autogarten::readSensors() {
         break;
     }
 
-    unsigned int timestampDelta = 100;	// TODO
+    unsigned int timestampDelta = now() - _timestampBase;
     _sensors[ctr].dataPoints[_currDataPoints] = (DataPoint){timestampDelta, value};
   }
 
   _currDataPoints++;
   if(_currDataPoints >= MAX_DATA_POINTS) {
+        _currDataPointsOverflow = true;
   	_currDataPoints = 0;
   }
 }
@@ -458,8 +451,9 @@ void Autogarten::printDebugInfo() {
     Serial.print(F("  "));
     Serial.println(sensor.id);
 
-    for (byte xtr=0; xtr < _currDataPoints; xtr++) {
-      Serial.print(F("  "));
+    byte dpCount = _currDataPointsOverflow ? MAX_DATA_POINTS : _currDataPoints;
+    for (byte xtr=0; xtr < dpCount; xtr++) {
+      Serial.print(F("    "));
       Serial.print(sensor.dataPoints[xtr].timestampDelta);
       Serial.print(F(" : "));
       Serial.println(sensor.dataPoints[xtr].value);
@@ -484,28 +478,54 @@ void Autogarten::printFreeMemory() {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 
-// Construct the body of a probe sync request to the control server
-String Autogarten::createProbeSyncRequest(byte connectionAttempts) {
+// Send the probe sync request to the control server
+void Autogarten::sendProbeSyncRequest(byte connectionAttempts) {
 
-  String syncRequest = "{\"probe_id\":\"";
-  syncRequest += _probeId;
-  syncRequest += "\",";
-  syncRequest += "\"token\":\"";
-  syncRequest += _ctrlSrvrToken;
-  syncRequest += "\",";
-  syncRequest += "\"sync_count\":";
-  syncRequest += _ctrlSrvrSyncCount;
-  syncRequest += ",";
-  syncRequest += "\"curr_time\":";
-  syncRequest += timeStatus() ? now() : 0;
-  syncRequest += ",";
-  syncRequest += "\"connection_attempts\":";
-  syncRequest += connectionAttempts;
-  syncRequest += ",";
-  syncRequest += "\"sensor_data\":[]";	// TODO
-  syncRequest += "}";
-  
-  return syncRequest;
+  // Setup base HTTP Request Headers
+  _wifiClient.println(F("POST /probe_sync HTTP/1.1"));    
+  _wifiClient.println(F("User-Agent: Arduino/1.0"));
+  _wifiClient.println(F("Connection: close"));
+  _wifiClient.println(F("Content-Type: application/json"));
+
+  // So memory on the Arduino is tight; we have less than 2KB to work with.
+  // There just isn't enough to allow for a reasonable about of sensor data to
+  // be stored, and then also build that into a JSON string or char[] to send
+  // to the control server.  Sending in chunks (Transfer-Encoding: chunked)
+  // also won't work since Flask/WSGI doesn't support it even though it's
+  // part of HTTP 1.1.  Calculating the exact content lenght is possible, but
+  // would be tedious and consume extra resources.
+  //
+  // A workaround is to estimate the content length (rounding up). Then we can
+  // send 'chunks' of the request body, sending whitespace at the end to
+  // satisfy the advertised Content-Length.
+  //
+  //  TODO: Estimate length per data point...  
+  // 
+  int contentLength = 93 +  // See comment block above
+    strlen(_probeId) +
+    strlen(_ctrlSrvrToken) +
+    numberStrlen(_ctrlSrvrSyncCount) +
+    numberStrlen(currentTime()) +
+    numberStrlen(connectionAttempts);
+
+  _wifiClient.print(F("Content-Length: "));
+  _wifiClient.println(contentLength);
+  _wifiClient.println();
+
+  // Send the request body...
+  _wifiClient.print(F("{\"probe_id\":\""));
+  _wifiClient.print(_probeId);
+  _wifiClient.print(F("\",\"token\":\""));
+  _wifiClient.print(_ctrlSrvrToken);
+  _wifiClient.print(F("\",\"sync_count\":"));
+  _wifiClient.print(_ctrlSrvrSyncCount);
+  _wifiClient.print(F(",\"curr_time\":"));
+  _wifiClient.print(currentTime());
+  _wifiClient.print(F(",\"connection_attempts\":"));
+  _wifiClient.print(connectionAttempts);
+  _wifiClient.print(F(",\"sensor_data\":["));
+  _wifiClient.print(F("]}"));
+  _wifiClient.println();
 }
 
 
@@ -605,6 +625,18 @@ void Autogarten::printSensorResult(char sensorId[], int pin, float value) {
 }
 
 
+// Clears all DataPoints stored for each sensor
+void Autogarten::clearCurrDataPoints() {
+  for (byte ctr=0; ctr < _sensorCount; ctr++) {
+    for (byte xtr=0; xtr < MAX_DATA_POINTS; xtr++) {
+      _sensors[ctr].dataPoints[xtr] = (DataPoint){0, 0.0};
+    }    
+  }
+  _currDataPoints = 0;
+  _currDataPointsOverflow = false;
+}
+
+
 // Convert a celsius value to Fahrenheit, because Amurika
 float Autogarten::convertCelsiusToFahrenheit(float degreesCelsius) {
   return degreesCelsius * 1.8 + 32.0;
@@ -644,6 +676,21 @@ String Autogarten::getValueFromJSON(String jsonString, String jsonKey) {
 void Autogarten::printErrorCode(int errorCode) {
   Serial.print(F("ERROR "));
   Serial.println(errorCode);
+}
+
+
+// Returns the current timestamp. If no time is set, then returns zero.
+long Autogarten::currentTime() {
+  return timeStatus() ? now() : 0;
+}
+
+
+// Returns the number of chars required to display the given number
+byte Autogarten::numberStrlen(long number) {
+  byte len = (number < 0) ? 2 : 1;
+  while (number /= 10)
+    len++;
+  return len;
 }
 
 

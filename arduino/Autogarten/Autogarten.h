@@ -18,7 +18,7 @@ const byte SENSOR_TYPE_DIGITAL = 2;
 const byte SENSOR_TYPE_ONEWIRE_TEMP = 3;
 
 const byte MAX_SENSORS = 5;
-const byte MAX_DATA_POINTS = 20;  // (Per Sensor)
+const byte MAX_DATA_POINTS = 5;  // (Per Sensor)
 
 const byte ONE_WIRE_PIN = 9;
 const byte MAX_CONNECTION_ATTEMPTS = 25;
@@ -51,7 +51,7 @@ class Autogarten {
     int   _ctrlSrvrPort;
     char *_ctrlSrvrToken;
     int   _ctrlSrvrSyncCount;
-    String createProbeSyncRequest(byte connectionAttempts);
+    void sendProbeSyncRequest(byte connectionAttempts);
 
     /* WiFI */
     char      *_wifiSSID;
@@ -67,17 +67,21 @@ class Autogarten {
     byte _sensorCount;	
     byte _oneWireDeviceCount;	
     byte _currDataPoints;
+    boolean _currDataPointsOverflow;
     long _timestampBase;
     byte getPinForSensorId(char sensorId[]);
     byte getOneWireIdxForSensorId(char sensorId[]);
     boolean isDigitalPin(int pin);
     boolean isAnalogPin(int pin);
     void printSensorResult(char sensorId[], int pin, float value);
+    void clearCurrDataPoints();
 
     /* Util - Debug Methods */
     float convertCelsiusToFahrenheit(float degreesCelsius);
     String getValueFromJSON(String jsonString, String jsonKey);
     void printErrorCode(int errorCode);
+    long currentTime();
+    byte numberStrlen(long number);
     int getFreeMemory();
 
 
