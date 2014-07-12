@@ -15,6 +15,13 @@
   </div>
 </header>
 
+{% if not probe_overview %}
+  <div class="probeSection">
+  <h2>No Probes Yet...</h2>
+  No probes have synced with this control server...
+  </div>
+{% endif %}
+
 {% for probe in probe_overview %}
 <div class="probeSection">
   <div class="probeHeader">
