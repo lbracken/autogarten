@@ -1,16 +1,16 @@
 {% extends "layout.html" %}
-{% block title %}autogarten{% endblock %}
+{% block title %}autogarten - probe details{% endblock %}
 {% block extra_style %}{% endblock %}
 {% block body %}
 
-{% if not probe_overview %}
+{% if not probe %}
   <div class="probeSection">
-  <h2>No Probes Yet...</h2>
-  No probes have synced with this control server...
+  <h2>Invalid Probe Id...</h2>
+  No probe with this id has sync'd with this control server...
   </div>
 {% endif %}
 
-{% for probe in probe_overview %}
+{% if probe %}
 <div class="probeSection">
   <div class="probeHeader">
     <span class="probeId">{{probe.id}}</span>
@@ -41,45 +41,7 @@
         <span class="sensorIcon"></span>
         Sensors
       </div>
-
-      <table class="resultsTable">
-        <thead>
-          <tr>
-            <th>Sensor Id</th>
-            <th>Current</th>
-            <th>Average</th>
-            <th>Recent Week</th>
-            <th>Low/High</th>
-          </tr>
-        </thead>
-        <tbody>
-
-          {% for sensor in probe.sensors %}
-            <tr>
-              <td>{{sensor.id}}</td>
-              <td>{{sensor.curr_value|format_number}}{{sensor.units_label|safe}}</td>
-              <td>{{sensor.avg_value|format_number}}{{sensor.units_label|safe}}</td>
-              <td><div class="sparkline" data='{
-              	"min_value" : {{sensor.min_value-0.1}},
-              	"max_value" : {{sensor.max_value+0.1}},
-              	"values" : [{{ sensor.data|join(', ')}}] }'> </div>
-              </td>              
-              <td class="center-align">
-                {{sensor.min_value|format_number}}{{sensor.units_label|safe}}
-                / 
-                {{sensor.max_value|format_number}}{{sensor.units_label|safe}}
-              </td>
-            </tr>
-          {% endfor %}
-
-        </tbody>
-      </table>
-
-      <div style="border: 1px dotted #CCC;" class="sparkline" data='{
-                "min_value" : 0,
-                "max_value" : 10,
-                "values" : [1,2,0,0,0,3,4,5,6,7,0,0,0,8,9,10] }'> </div>
-             
+      <div class="graphContainer"></div>
 
       <div class="instrumentSectionHeader">
         <span class="actuatorIcon"></span>
@@ -87,10 +49,12 @@
       </div>
     </div>
 
+    <div id="chartsContainer"></div>
+
     <div class="clearPanel"></div>
   </div>
 </div>
-{% endfor %}
+{% endif %}
 
 
 {% endblock %}
@@ -98,14 +62,15 @@
 {% block scripts %}
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 
-    <!-- Local copies of jquery from CDN --> <!--
-    <script src="static/js/jquery.min.js" type="text/javascript"></script>
-	-->
+    <!-- Local copies of jquery from CDN -->
+    <script src="../static/js/jquery.min.js" type="text/javascript"></script>
+
 
     <!-- Local copies of jquery, from CDN -->
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script src="static/js/raphael.2.1.1.min.js" type="text/javascript"></script>
-    <script src="static/js/autogarten.js" type="text/javascript"></script>
+    <script src="../static/js/d3.v3.min.js" charset="utf-8"></script>
+    <script src="../static/js/raphael.2.1.1.min.js" type="text/javascript"></script>
+    <script src="../static/js/probe.js" type="text/javascript"></script>
 
     <!-- Add Raphael icons to page -->
     <script>

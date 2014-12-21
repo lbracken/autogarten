@@ -54,7 +54,7 @@ def get_probe_overview():
         
         # Get recent sensor data
         end_time = datetime.now()
-        start_time = end_time - timedelta(days=7)
+        start_time = end_time - timedelta(days=1)
         sensors_data = get_sensor_data_for_probe(
             probe["id"], start_time, end_time)
 
@@ -81,6 +81,53 @@ def get_probe_overview():
         probe_overview.append(probe)
 
     return probe_overview
+
+
+def get_probe_details(probe_id):
+    """ Returns detailed information on the requested probe
+
+    """
+    # Lookup status information for this probe...
+    probe_details = db_probe_status.find_one({"_id" : probe_id})
+
+    if probe_details:
+        del probe_details["_id"]
+        probe_details["id"] = probe_id
+        probe_details["desc"] = "TODO: Add Description..."
+        probe_details["sensors"] = []
+
+        # Get the probe's sensor data...
+        # TEMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=1)
+        sensors_data = get_sensor_data_for_probe(
+            probe_id, start_time, end_time)
+
+        for sensor_data in sensors_data:
+
+            sensor = {
+                "id" : sensor_data["_id"],
+                "desc" : "TODO Sensor Description...",
+                "units_label" : "&deg;",  # TODO: Need data type (degrees, etc)
+                "curr_value" : sensor_data["data"].values()[-1],
+                "min_value" : sensor_data["min_value"],
+                "max_value" : sensor_data["max_value"]
+            }
+
+            data = bucketize_data(168,
+                date_util.get_timestamp(start_time),
+                date_util.get_timestamp(end_time),
+                sensor_data["data"])
+
+            sensor["data"] = data
+            sensor["avg_value"] = average_list_values(data)
+            probe_details["sensors"].append(sensor)
+
+        # TEMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # TODO...
+
+    return probe_details
 
 
 def process_probe_sync(probe_sync):

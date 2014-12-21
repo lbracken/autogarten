@@ -133,6 +133,22 @@ img {border: none;}
   fill: none;
 }
 
+.graphContainer {
+  border: 1px solid red;
+  width: 90%;
+  height: 150px;
+}
+
+.graphLine {
+  fill: none;
+  stroke: #666;
+  stroke-width: 1.5px;
+}
+
+.graphArea {
+  fill: #e7e7e7;
+}
+
 #footer {
   /* Sticky footer: http://mystrd.at/modern-clean-css-sticky-footer/ */
   position: absolute;

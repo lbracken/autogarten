@@ -58,6 +58,12 @@ def main_page():
     return render_template("index.html", probe_overview=probe_overview)
 
 
+@app.route("/probe/<probe_id>")
+def probe_details(probe_id):
+    probe_details = probe_service.get_probe_details(probe_id)
+    return render_template("probe.html", probe=probe_details)
+
+
 @app.route("/probe_sync", methods=['POST'])
 def probe_sync():
 
