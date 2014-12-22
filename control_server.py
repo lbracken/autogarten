@@ -102,6 +102,7 @@ def probe_sync():
         print "[WARN] Probe '%s' attemped to connect %d times" %\
             (probe_sync.probe_id, probe_sync.connection_attempts)
 
+    print request.json
     response = probe_service.process_probe_sync(probe_sync)
 
     if verbose:

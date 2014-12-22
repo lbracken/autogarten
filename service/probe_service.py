@@ -22,9 +22,6 @@ import date_util
 db_probe_status = None
 db_sensor_data = None
 
-# TODO: These values should be defined in each probe's indivdual config
-probe_sync_duration = 1 * 60 # In seconds
-sensor_read_frequency = 10   # In seconds
 
 def init_db():
     global db_probe_status, db_sensor_data
@@ -107,9 +104,7 @@ def process_probe_sync(probe_sync):
     now = date_util.get_current_timestamp()
     response = {
         "probe_id" : probe_sync.probe_id,
-        "curr_time" : now,
-        "next_sync" : now + probe_sync_duration,
-        "sensor_freq" : sensor_read_frequency
+        "curr_time" : now
     }
 
     return response
@@ -212,7 +207,7 @@ def persist_sensor_data(probe_id, sensor_data):
         timestamp = data_point["timestamp"]
         date_time = datetime.fromtimestamp(timestamp)
         day = date_util.get_midnight(date_time)
-        value = data_point["data"]
+        value = data_point["value"]
 
         db_sensor_data.update(
             {"_id" : get_metric_id(day, probe_id, sensor_id)},

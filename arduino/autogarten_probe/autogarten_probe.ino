@@ -12,6 +12,7 @@
 #include <Time.h>
 #include <TimeAlarms.h>
 
+// Define the probe, setting the unique probe id
 Autogarten autogarten("autogarten_probe");
 
 void setup(){
@@ -19,8 +20,8 @@ void setup(){
   autogarten.printFreeMemory();
   
   // Setup configuration for Control Server and WiFi connection
-  autogarten.setupControlServer("hostname/ip", 5000, "changeme");
-  autogarten.setupWiFi("SSID", "password", true);
+  //autogarten.setupControlServer("hostname/ip", 5000, "changeme", 30, 121);
+  //autogarten.setupWiFi("SSID", "password", true);  
   
   // Add sensors
   autogarten.addSensor("light-1",  A0, SENSOR_TYPE_ANALOG);

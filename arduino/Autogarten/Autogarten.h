@@ -52,6 +52,11 @@ class Autogarten {
     char *_ctrlSrvrToken;
     int   _ctrlSrvrSyncCount;
     void sendProbeSyncRequest(byte connectionAttempts);
+    int sendProbeSyncSensorData(boolean preview);
+
+    /* Timers */
+    AlarmID_t _sensorsReadTimer;
+    AlarmID_t _ctrlSrvrSyncTimer;
 
     /* WiFI */
     char      *_wifiSSID;
@@ -88,7 +93,7 @@ class Autogarten {
   public:
     /* Setup */
     Autogarten(char probeId[]);
-    void setupControlServer(char address[], int port, char token[]);
+    void setupControlServer(char address[], int port, char token[], long sensorReadFrequency, long ctrlServerSyncFrequency);
     void setupWiFi(char ssid[], char password[], boolean keepAlive);
 
     /* Control Server */

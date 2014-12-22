@@ -98,12 +98,25 @@ Autogarten::Autogarten(char probeId[]) {
  *  + Control Server Address
  *  + Control Server Port
  *  + Control Server Security Token
+ *  + Frequency of when sensors should get read, in seconds
+ *  + Frequency of when probe should sync with control server, in seconds
  */
-void Autogarten::setupControlServer(char address[], int port, char token[]) {
+void Autogarten::setupControlServer(char address[], int port, char token[],
+        long sensorReadFrequency, long ctrlServerSyncFrequency) {
+
   _ctrlSrvrAddr  = address;
   _ctrlSrvrPort  = port;
   _ctrlSrvrToken = token;
   _ctrlSrvrSyncCount = 0;
+
+  // Schedule timers for reading sensors and control server sync'ing
+  _sensorsReadTimer  = Alarm.timerRepeat(ctrlServerSyncFrequency, onSyncWithControlServer);
+  _ctrlSrvrSyncTimer = Alarm.timerRepeat(sensorReadFrequency, onReadSensors);
+
+  // After creating the timers, disable (Pause) them.  It will get enabled
+  // after the first control server sync which is need to establish the time.
+  Alarm.disable(_sensorsReadTimer);
+  Alarm.disable(_ctrlSrvrSyncTimer);
 }
 
 
@@ -163,6 +176,10 @@ void Autogarten::syncWithControlServer(void (*onSyncWithControlServer)(), void (
     if (_wifiClient.connect(_ctrlSrvrAddr, _ctrlSrvrPort)) {
       Serial.println(F("Synchronizing..."));
 
+      // Disable (Pause) any running timers
+      Alarm.disable(_sensorsReadTimer);
+      Alarm.disable(_ctrlSrvrSyncTimer);
+
       // Create and send the probe sync request with the control server
       sendProbeSyncRequest(connectionAttempts);
 
@@ -188,23 +205,22 @@ void Autogarten::syncWithControlServer(void (*onSyncWithControlServer)(), void (
 
       // Read HTTP Response Body
       response = _wifiClient.readString();
-      Serial.println(response);
 
       // Resync clock with the control server (approximately)
       long currTime = getValueFromJSON(response, "curr_time").toInt();
       _timestampBase = currTime;
       setTime(currTime);
 
-      // Schedule the next sync with the control server
-      long nextSync = getValueFromJSON(response, "next_sync").toInt() - currTime;
-      Alarm.timerOnce(nextSync, onSyncWithControlServer);
-
-      // Schedule sensor reads...
-      int sensorFrequency = getValueFromJSON(response, "sensor_freq").toInt();
-      Alarm.timerRepeat(sensorFrequency, onReadSensors);
-
+      // Clear current sensor data.
+      clearCurrDataPoints();
+      
+      Serial.println(response); // For Debug Only
       Serial.println(F("... sync complete"));
       _ctrlSrvrSyncCount++;
+
+      // Enable (Restart) any running timers
+      Alarm.enable(_sensorsReadTimer);
+      Alarm.enable(_ctrlSrvrSyncTimer);
 
       // If not keeping the WiFi connection alive, we can now disconnect
       if (!_wifiKeepAlive) {
@@ -489,24 +505,47 @@ void Autogarten::sendProbeSyncRequest(byte connectionAttempts) {
 
   // So memory on the Arduino is tight; we have less than 2KB to work with.
   // There just isn't enough to allow for a reasonable about of sensor data to
-  // be stored, and then also build that into a JSON string or char[] to send
-  // to the control server.  Sending in chunks (Transfer-Encoding: chunked)
-  // also won't work since Flask/WSGI doesn't support it even though it's
-  // part of HTTP 1.1.  Calculating the exact content lenght is possible, but
-  // would be tedious and consume extra resources.
+  // be stored, and then also build that into a single JSON string or char[] to
+  // send to the control server at once.  Sending in chunks 
+  // (Transfer-Encoding: chunked) also won't work since Flask/WSGI doesn't
+  // support it even though it's part of HTTP 1.1.  
   //
-  // A workaround is to estimate the content length (rounding up). Then we can
-  // send 'chunks' of the request body, sending whitespace at the end to
-  // satisfy the advertised Content-Length.
-  //
-  //  TODO: Estimate length per data point...  
+  // A solution is to perform some extra processing the determines the exact
+  // content-length to be sent first, then print small blocks of content at a
+  // time to the WiFI client.  
   // 
-  int contentLength = 93 +  // See comment block above
+  int contentLength = 93 + // For constant text in F() marcos below
+    sendProbeSyncSensorData(true) + // Determine size of sensor data to send
     strlen(_probeId) +
     strlen(_ctrlSrvrToken) +
     numberStrlen(_ctrlSrvrSyncCount) +
     numberStrlen(currentTime()) +
     numberStrlen(connectionAttempts);
+
+  /////////////////////////
+  /////////////////////////
+  /*
+          Serial.print(F("Content-Length: "));
+          Serial.println(contentLength);
+          Serial.println();
+
+          // Send the request body...
+          Serial.print(F("{\"probe_id\":\""));
+          Serial.print(_probeId);
+          Serial.print(F("\",\"token\":\""));
+          Serial.print(_ctrlSrvrToken);
+          Serial.print(F("\",\"sync_count\":"));
+          Serial.print(_ctrlSrvrSyncCount);
+          Serial.print(F(",\"curr_time\":"));
+          Serial.print(currentTime());
+          Serial.print(F(",\"connection_attempts\":"));
+          Serial.print(connectionAttempts);
+          Serial.print(F(",\"sensor_data\":["));
+          Serial.print(F("]}"));
+          Serial.println();
+  */
+  /////////////////////////
+  /////////////////////////
 
   _wifiClient.print(F("Content-Length: "));
   _wifiClient.println(contentLength);
@@ -519,13 +558,63 @@ void Autogarten::sendProbeSyncRequest(byte connectionAttempts) {
   _wifiClient.print(_ctrlSrvrToken);
   _wifiClient.print(F("\",\"sync_count\":"));
   _wifiClient.print(_ctrlSrvrSyncCount);
-  _wifiClient.print(F(",\"curr_time\":"));
-  _wifiClient.print(currentTime());
   _wifiClient.print(F(",\"connection_attempts\":"));
   _wifiClient.print(connectionAttempts);
   _wifiClient.print(F(",\"sensor_data\":["));
-  _wifiClient.print(F("]}"));
-  _wifiClient.println();
+
+  sendProbeSyncSensorData(false);
+
+  _wifiClient.print(F("],\"curr_time\":"));
+  _wifiClient.print(currentTime());
+  _wifiClient.println(F("}"));
+}
+
+
+// Send collected sensor data in a probe sync request.
+// This function can be run in two modes.  If preview is set to true,
+// then no data is sent, however, the length of the content to send is
+// returned by the function.  If preview is set to false, then sensor
+// data is sent.
+int Autogarten::sendProbeSyncSensorData(boolean preview) {
+
+  String dataPointStr = "";
+  boolean isFirst = true;
+  int contentLength = 0;
+
+  byte dpCount = _currDataPointsOverflow ? MAX_DATA_POINTS : _currDataPoints;
+  for (byte ctr=0; ctr < _sensorCount; ctr++) {
+    for(byte xtr=0; xtr < dpCount; xtr++) {
+
+      dataPointStr = (isFirst) ? "" : ",";
+      isFirst = false;      
+  
+      dataPointStr += "{\"id\":\"";
+      dataPointStr += _sensors[ctr].id;
+      dataPointStr += "\",\"timestamp\":";
+      dataPointStr += _timestampBase + _sensors[ctr].dataPoints[xtr].timestampDelta;
+      dataPointStr += ",\"value\":";
+
+      if (_sensors[ctr].type == SENSOR_TYPE_ONEWIRE_TEMP) {
+        dataPointStr += (_sensors[ctr].dataPoints[xtr].value / 100);
+        dataPointStr += ".";
+        dataPointStr += (_sensors[ctr].dataPoints[xtr].value % 100);
+      } else {
+        dataPointStr += _sensors[ctr].dataPoints[xtr].value;
+      }
+
+      dataPointStr += "}";
+      contentLength += dataPointStr.length();
+
+      // If this isn't a preview, then print
+      // this dataPoint to the WiFi client
+      if (!preview) {
+        //Serial.print(dataPointStr);
+        _wifiClient.print(dataPointStr);  
+      }      
+    }
+  }
+
+  return contentLength;
 }
 
 
