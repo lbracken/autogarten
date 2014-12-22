@@ -4,12 +4,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Test module that simulates a probe to validate Control Server.
-
-    This test probe has the following sensors...
-      * tmp0 - A mock temperature sensor that always returns 70.0' 
-      * tmp1 - A mock temperature sensor that rises and falls over 1hr
-      * pho0 - A mock light sensor that rises and falls over 24hrs
-      * mos0 - A mock mositure sensor returns random values
+    See read_all_sensors() for list of sensors simulated by this probe.
 
     :license: MIT, see LICENSE for more details.
 """
@@ -38,6 +33,9 @@ sync_count = 0
 
 probe_id = "test_probe"
 
+sensor_freq = 15    # Read sensors every 15s
+sync_freq = 31      # Sync with control server every 60s
+
 
 def send_probe_sync_request():
     global sync_count
@@ -51,6 +49,8 @@ def send_probe_sync_request():
         "probe_id" : probe_id,
         "token" : token,
         "connection_attempts" : 1,
+        "sensor_freq" : sensor_freq,
+        "sync_freq" : sync_freq,
         "sync_count" : sync_count,
         "curr_time" : date_util.get_current_timestamp(),
         "sensor_data" : sensor_data
@@ -77,52 +77,6 @@ def send_probe_sync_request():
     print "%s" % response_content_str
     print ""
 
-    # Schedule a timer for the next probe sync
-    next_probe_sync = get_next_timer_interval(response_content["interval"])
-    exec_data = datetime.fromtimestamp(next_probe_sync+1)
-    sched.add_date_job(send_probe_sync_request, exec_data, [])
-
-    # Unschedule any sensor jobs (intervals)
-    if sync_count > 1:
-        sched.unschedule_func(read_sensor)
-
-    # Schedule timers for all sensor commands.
-    # This Python implementtion is differnet from Arduion (and more clumsy)
-    for sensor_command in response_content["sensor_commands"]:
-        next_sensor_read = get_next_timer_interval(sensor_command["interval"])
-        exec_data = datetime.fromtimestamp(next_sensor_read)
-
-        sched.add_interval_job(
-            read_sensor,
-            seconds=sensor_command["interval"],
-            start_date=str(exec_data),
-            args=[sensor_command["id"]])
-
-    sched.print_jobs()
-    print "..."
-
-
-def get_next_timer_interval(interval):
-    """ Given an interval (in seconds), determine the starting point of
-        the next period of this interval.  All intervals are based upon
-        time since midnight of the current day.
-
-        For example, if the current day was Jan 1st, 1970, with an
-        interval of 3600 (1hr), and this method was called at 2:30a...
-
-        Timestamp  Time
-                0  12:00a
-             3600  01:00a
-             7200  02:00a
-             9000  02:30a  <--- If calling here...
-            10800  03:00a  <--- Timestamp for 3a will be returned
-
-    """
-    now_datetime = datetime.now()
-    now = date_util.get_timestamp(now_datetime)
-    midnight = date_util.get_timestamp(date_util.get_midnight(now_datetime))
-    return midnight + ((now - midnight)/interval) * interval + interval
-
 
 def get_seconds_since_midnight():
     now = datetime.now()
@@ -136,27 +90,36 @@ def get_seconds_since_hour():
     return int((now - hour).total_seconds())    
 
 
-def read_sensor(sensor_id):
+def read_all_sensors():
+
+    if verbose:
+        print ""
+        print "Reading Sensors..."
+
+    # tmp0 - A mock temperature sensor that always returns 70.0'
+    record_sensor_data("tmp0", 70.0)
+
+    # tmp1 - A mock temperature sensor that rises and falls over 1hr
+    record_sensor_data("tmp1", get_seconds_since_hour() / 100)
+
+    # pho0 - A mock light sensor that rises and falls over 24hrs
+    record_sensor_data("pho0", get_seconds_since_midnight() / 100)
+
+    # mos0 - A mock mositure sensor returns random values
+    record_sensor_data("mos0", random.randrange(0, 100))
+
+
+def record_sensor_data(sensor_id, value):
 
     data_point = {
         "id" : sensor_id,
-        "timestamp" : date_util.get_current_timestamp()
+        "timestamp" : date_util.get_current_timestamp(),
+        "value" : value
     }
 
-    # See module header for details on data point values
-    if sensor_id == "tmp0":
-        data_point["data"] = 70.0
+    if verbose:
+        print json.dumps(data_point, indent=1)
 
-    elif sensor_id == "tmp1":
-        data_point["data"] = get_seconds_since_hour() / 100
-
-    elif sensor_id == "pho0":
-        data_point["data"] = get_seconds_since_midnight() / 100
-
-    elif sensor_id == "mos0":
-        data_point["data"] = random.randrange(0, 100)
-
-    print json.dumps(data_point, indent=1)
     sensor_data.append(data_point)
 
 
@@ -192,7 +155,11 @@ if __name__ == "__main__":
     sched.start()
 
     print "--------------------------------------< autogarten Test Probe >----"
-    send_probe_sync_request()
+
+    # Schedule probe syncs with control server and sensor reads
+    sched.add_interval_job(send_probe_sync_request, seconds=sync_freq)
+    sched.add_interval_job(read_all_sensors, seconds=sensor_freq)
+    sched.print_jobs()
 
     while True:
         sleep(1)

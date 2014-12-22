@@ -81,7 +81,9 @@ def probe_sync():
 
     if verbose:
         print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>> probe_sync"
-        print request 
+        print request
+        print request.json
+        print "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
 
     # Validate probe sync request token
     if not probe_sync.token == token:
